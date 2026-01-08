@@ -1,0 +1,28 @@
+---
+- name: Create Security Group
+  amazon.aws.ec2_security_group:
+    name: "{{ sg_name }}"
+    description: "{{ sg_description }}"
+    region: "{{ aws_region }}"
+    vpc_id: "{{ vpc_id }}" # Ensure vpc_id is defined in your vars
+    rules: "{{ sg_rules }}"
+    state: present
+  register: web_sg
+
+- name: Provision EC2 Instance
+  amazon.aws.ec2_instance:
+    aws_access_key: "{{ vault_aws_access_key }}"
+    aws_secret_key: "{{ vault_aws_secret_key }}"
+    name: "{{ instance_name }}"
+    key_name: "{{ aws_key_name }}"
+    instance_type: "{{ instance_type }}"
+    image_id: "{{ ami_id }}"
+    region: "{{ aws_region }}"
+    vpc_subnet_id: "{{ subnet_id }}"
+    # Use the Security Group ID created in the previous task
+    security_group: "{{ web_sg.group_id }}"
+    tags:
+      Project: "{{ project_name }}"
+      Environment: "{{ env_tier }}"
+    wait: yes
+  no_log: true

@@ -1,0 +1,29 @@
+---
+# Environment Metadata
+env_tier: "development"
+project_name: "ecommerce-web"
+
+# AWS Infrastructure Settings
+aws_region: "us-east-1"
+instance_type: "t3.micro"       # Smaller instance for cost savings in dev
+ami_id: "ami-0ecb62995f68bb549" # Amazon Linux 2023 (Example)
+subnet_id: "subnet-0db315b660a00c051"
+aws_key_name: "kp1"
+
+# Security Group Settings
+sg_name: "dev-web-sg"
+sg_description: "Allow SSH and HTTP for Dev Environment"
+sg_rules:
+  - proto: tcp
+    from_port: 22
+    to_port: 22
+    cidr_ip: 0.0.0.0/0
+    rule_desc: "Allow SSH"
+  - proto: tcp
+    from_port: 80
+    to_port: 80
+    cidr_ip: 0.0.0.0/0
+    rule_desc: "Allow HTTP"
+
+# Application Specifics
+instance_name: "dev-web-server-01"

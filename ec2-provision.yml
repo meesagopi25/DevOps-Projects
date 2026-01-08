@@ -1,0 +1,7 @@
+---
+- name: Deploy AWS EC2 Infrastructure
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - role: ec2_provision
