@@ -23,7 +23,7 @@ pipeline {
                     
                     # 2. Run the playbook. 
                     # Ansible will automatically decrypt secrets.yaml using the password file.
-                    ansible-playbook provision-ec2.yml \
+                    ansible-playbook ec2-provision.yml \
                         -e "@dev.yaml" \
                         -e "@secrets.yaml" \
                         --vault-password-file .vault_pass
