@@ -1,6 +1,8 @@
 ---
 - name: Create Security Group
   amazon.aws.ec2_security_group:
+    aws_access_key: "{{ vault_aws_access_key }}"
+    aws_secret_key: "{{ vault_aws_secret_key }}"
     name: "{{ sg_name }}"
     description: "{{ sg_description }}"
     region: "{{ aws_region }}"
