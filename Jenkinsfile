@@ -1,66 +1,45 @@
 pipeline {
     agent {
-        kubernetes {
-            yaml """
-apiVersion: v1
-kind: Pod
-spec:
-  containers:
-  - name: ansible-worker
-    image: mgopi1982/aws-infra-provisioner:v1
-    command: ["cat"]
-    tty: true
-"""
+        docker {
+            image 'mgopi1982/aws-infra-provisioner:v1'
+            // We run as root to avoid permission issues with the workspace
+            args '-u root' 
         }
     }
 
     environment {
-        VAULT_PASS = credentials('ansible-vault-password')
-        AWS_ACCESS_KEY_ID = credentials('aws-access-key-id')
-        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
+        // IDs must match exactly what you created in Jenkins Credentials
+        AWS_CREDS    = credentials('aws-credentials-id') 
+        VAULT_PASS   = credentials('ansible-vault-pass-id')
     }
 
     stages {
         stage('Checkout') {
-            steps { checkout scm }
-        }
-
-        stage('Ansible Dry Run') {
             steps {
-                container('ansible-worker') {
-                    script {
-                        sh 'echo "$VAULT_PASS" > .vault_pass'
-                        // --check: Simulates the run
-                        // --diff: Shows what changes would be made
-                        sh """
-                        ansible-playbook provision.yml \
-                            -e "@dev.yaml" -e "@secrets.yaml" \
-                            --vault-password-file .vault_pass \
-                            --check --diff
-                        """
-                        sh 'rm .vault_pass'
-                    }
-                }
-            }
-        }
-
-        stage('Manual Approval') {
-            steps {
-                input message: "Dry run successful. Do you want to proceed with actual provisioning?", ok: "Deploy"
+                git branch: 'main', url: 'https://github.com/meesagopi25/DevOps-Projects.git'
             }
         }
 
         stage('Provision EC2') {
             steps {
-                container('ansible-worker') {
-                    script {
-                        sh 'echo "$VAULT_PASS" > .vault_pass'
-                        sh """
-                        ansible-playbook provision.yml \
-                            -e "@dev.yaml" -e "@secrets.yaml" \
-                            --vault-password-file .vault_pass
-                        """
-                    }
+                // We use withCredentials to safely pass the AWS keys to Ansible
+                withCredentials([
+                    usernamePassword(credentialsId: 'aws-credentials-id', 
+                                     passwordVariable: 'AWS_SECRET_ACCESS_KEY', 
+                                     usernameVariable: 'AWS_ACCESS_KEY_ID'),
+                    file(credentialsId: 'ansible-vault-pass-id', 
+                         variable: 'VAULT_FILE')
+                ]) {
+                    sh """
+                    export AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+                    export AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+                    export AWS_DEFAULT_REGION=us-east-1
+                    
+                    ansible-playbook provision-ec2.yml \
+                        --vault-password-file ${VAULT_FILE} \
+                        -e "aws_access_key=${AWS_ACCESS_KEY_ID}" \
+                        -e "aws_secret_key=${AWS_SECRET_ACCESS_KEY}"
+                    """
                 }
             }
         }
@@ -68,7 +47,7 @@ spec:
 
     post {
         always {
-            container('ansible-worker') { sh 'rm -f .vault_pass' }
+            cleanWs()
         }
     }
 }
