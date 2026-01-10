@@ -11,7 +11,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/your-repo/infra-code.git'
+                git branch: 'main', url: 'https://github.com/meesagopi25/DevOps-Projects.git'
             }
         }
 
