@@ -1,0 +1,56 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
+        AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
+        TF_HOME               = tool 'Terraform'
+        ANSIBLE_HOME          = tool 'Ansible'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/your-repo/infra-code.git'
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                sh "${TF_HOME}/terraform init"
+                sh "${TF_HOME}/terraform plan -out=tfplan"
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                sh "${TF_HOME}/terraform apply -auto-approve tfplan"
+                // Extract IP and save to a file for Ansible
+                script {
+                    def publicIp = sh(script: "${TF_HOME}/terraform output -raw public_ip", returnStdout: true).trim()
+                    env.INSTANCE_IP = publicIp
+                }
+            }
+        }
+
+        stage('Configure with Ansible') {
+            steps {
+                // Use the SSH key stored in Jenkins credentials
+                withCredentials([sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'SSH_KEY')]) {
+                    sh """
+                    echo "[web_servers]\n${env.INSTANCE_IP} ansible_user=ubuntu" > inventory.ini
+                    ansible-playbook -i inventory.ini nginx_playbook.yml \
+                        --private-key ${SSH_KEY} \
+                        --ssh-common-args='-o StrictHostKeyChecking=no'
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
